@@ -26,7 +26,7 @@ def login():
 
     _, group_id = auth_token
     session_token = start_session(group_id)
-    response = make_response({"groupID": group_id})
+    response = make_response({"groupID": group_id, "authToken": session_token})
     set_session_cookie(response, session_token)
     return response
 

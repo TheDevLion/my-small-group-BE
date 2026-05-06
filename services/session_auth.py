@@ -16,17 +16,56 @@ def _serializer():
     return URLSafeTimedSerializer(SESSION_SECRET_KEY, salt=SESSION_COOKIE_SALT)
 
 
-def require_session():
-    session_token = request.cookies.get(SESSION_COOKIE_NAME)
+def _extract_group_id(session_token):
     if not session_token:
-        return None, ({"error": "unauthorized"}, 401)
+        return None
 
     try:
         data = _serializer().loads(session_token, max_age=SESSION_TTL_SECONDS)
     except (BadSignature, SignatureExpired):
-        return None, ({"error": "unauthorized"}, 401)
+        return None
 
     group_id = data.get("group_id") if isinstance(data, dict) else None
+    if not group_id:
+        return None
+
+    return group_id
+
+
+def _get_authorization_token():
+    header_value = request.headers.get("Authorization", "").strip()
+    if not header_value:
+        return None
+
+    scheme, _, token = header_value.partition(" ")
+    if scheme.lower() != "bearer":
+        return None
+
+    token = token.strip()
+    if not token:
+        return None
+
+    return token
+
+
+def _get_group_id_from_authorization():
+    token = _get_authorization_token()
+    if not token:
+        return None
+
+    return _extract_group_id(token)
+
+
+def _get_group_id_from_cookie():
+    session_token = request.cookies.get(SESSION_COOKIE_NAME)
+    return _extract_group_id(session_token)
+
+
+def require_session():
+    group_id = _get_group_id_from_authorization()
+    if not group_id:
+        group_id = _get_group_id_from_cookie()
+
     if not group_id:
         return None, ({"error": "unauthorized"}, 401)
 

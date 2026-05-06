@@ -49,7 +49,7 @@ def create_app():
 
     app = Flask(__name__)
     CORS(app, supports_credentials=True, origins=CORS_ORIGINS)
-    app.config["CORS_HEADERS"] = "Content-Type"
+    app.config["CORS_HEADERS"] = "Content-Type, Authorization"
 
     @app.before_request
     def apply_rate_limit():
