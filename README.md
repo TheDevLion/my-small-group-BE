@@ -8,26 +8,26 @@ This backend is a Flask API with modular route and service layers. Sessions are 
 
 ## Technologies (Libraries and Versions)
 From `requirements.txt`:
-- blinker==1.7.0
-- certifi==2023.11.17
+- blinker==1.9.0
+- certifi==2026.10.23
 - charset-normalizer==3.3.2
 - click==8.1.7
 - colorama==0.4.6
 - cssselect==1.2.0
-- Flask==3.0.0
-- Flask-Cors==4.0.0
-- python-dotenv==1.0.1
-- idna==3.6
+- Flask==3.1.3
+- Flask-Cors==6.0.2
+- python-dotenv==1.2.2
+- idna==3.15
 - importlib-metadata==7.0.1
-- itsdangerous==2.1.2
-- Jinja2==3.1.2
-- lxml==5.1.0
+- itsdangerous==2.2.0
+- Jinja2==3.1.6
+- lxml==6.1.0
 - MarkupSafe==2.1.3
 - pyquery==2.0.0
-- requests==2.31.0
-- urllib3==2.1.0
-- Werkzeug==3.0.1
-- zipp==3.17.0
+- requests==2.33.0
+- urllib3==2.8.0
+- Werkzeug==3.1.9
+- zipp==3.19.1
 
 ## Run locally
 Prereqs:
