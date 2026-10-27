@@ -172,9 +172,7 @@ CORS_ORIGINS=http://localhost:4200,https://thedevlion.github.io
 ```
 
 
-## Regression checks and updated write contract
-
-Run `.venv/bin/python -B -m unittest discover -s tests -v`. Tests mock Hygraph and block network writes.
+## Updated write contract
 
 All four `/group/*` PUTs require `updatedAt` from `GET /group` and return the new revision on success. Missing/stale revisions return 409, without overwriting newer edits. Validation returns 400. A participant referenced by attendance cannot be deleted (409). Group reads use DRAFT so a saved but unpublished change can be inspected and retried after publication failure.
 
