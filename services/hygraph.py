@@ -116,5 +116,8 @@ def upload_asset(bearer_token, file_storage):
     if not upload_response.ok:
         return None
 
-    upload_data = upload_response.json()
-    return upload_data
+    try:
+        upload_data = upload_response.json()
+    except ValueError:
+        return None
+    return upload_data if isinstance(upload_data, dict) and upload_data.get('id') else None

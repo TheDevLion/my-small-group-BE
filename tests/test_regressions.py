@@ -78,5 +78,62 @@ class GroupTests(BaseTests):
             self.assertEqual(r.json['error'],'participant_in_use')
             call.assert_not_called()
 
+class PhotoTests(BaseTests):
+    def setUp(self):
+        super().setUp()
+        self.auth=patch('routes.event_photos.require_session',return_value=SESSION)
+        self.auth.start(); self.addCleanup(self.auth.stop)
+
+    def test_foreign_event_is_rejected_before_upload(self):
+        with patch('routes.event_photos.get_group_data',return_value={'events':[]}), patch('routes.event_photos.upload_asset') as upload:
+            r=self.client.post('/event-photos',data={'eventId':'foreign','fileUpload':(io.BytesIO(b'GIF89a' + b'0'*30),'a.gif')})
+            self.assertEqual(r.status_code,404)
+            upload.assert_not_called()
+
+    def test_invalid_file_is_rejected(self):
+        with patch('routes.event_photos.upload_asset') as upload:
+            r=self.client.post('/event-photos',data={'eventId':'e','fileUpload':(io.BytesIO(b'not image'),'a.png')})
+            self.assertEqual(r.status_code,400)
+            upload.assert_not_called()
+
+    def test_foreign_photo_cannot_be_deleted_or_published(self):
+        with patch('routes.event_photos.graphcms_request',return_value={'eventPhotos':[]}) as query:
+            self.assertEqual(self.client.delete('/event-photos/foreign').status_code,404)
+            self.assertEqual(self.client.post('/event-photos/foreign/publish').status_code,404)
+            self.assertEqual(query.call_count,2)
+            self.assertIn('groupId: $groupId',query.call_args.args[1])
+            self.assertEqual(query.call_args.args[2]['groupId'],'group-a')
+
+    def test_partial_upload_returns_retryable_id(self):
+        photo={'id':'photo','img':{'id':'asset','url':'url'}}
+        with patch('routes.event_photos.get_group_data',return_value={'events':[{'id':'e'}]}), patch('routes.event_photos.upload_asset',return_value={'id':'asset'}), patch('routes.event_photos.graphcms_request',return_value={'createEventPhoto':photo}), patch('routes.event_photos.publish_asset',return_value=None):
+            r=self.client.post('/event-photos',data={'eventId':'e','fileUpload':(io.BytesIO(b'GIF89a' + b'0'*30),'a.gif')})
+            self.assertEqual(r.status_code,502)
+            self.assertEqual(r.json,{'error':'publication_failed','id':'photo'})
+
+    def test_publication_retry_reuses_existing_photo(self):
+        photo={'id':'photo','eventId':'e','img':{'id':'asset','url':'url'}}
+        with patch('routes.event_photos.get_group_data',return_value={'events':[{'id':'e'}]}), patch('routes.event_photos.graphcms_request',return_value={'eventPhotos':[photo]}) as query, patch('routes.event_photos.publish_asset',return_value={'id':'asset'}), patch('routes.event_photos.publish_event_photo',return_value={'id':'photo'}), patch('routes.event_photos.upload_asset') as upload:
+            r=self.client.post('/event-photos/photo/publish')
+            self.assertEqual(r.status_code,200)
+            self.assertEqual(r.json,{'id':'photo','url':'url'})
+            upload.assert_not_called()
+            self.assertEqual(query.call_count,1)
+
+    def test_listing_is_scoped_and_marks_pending_publication(self):
+        with patch('routes.event_photos.get_group_data',return_value={'events':[{'id':'e'}]}), patch('routes.event_photos.graphcms_request',return_value={'eventPhotos':[{'id':'photo','img':{'url':'url'},'documentInStages':[]}]}) as query:
+            r=self.client.get('/event-photos?eventId=e')
+            self.assertEqual(r.status_code,200)
+            self.assertTrue(r.json[0]['pending'])
+            self.assertEqual(query.call_args.args[2]['groupId'],'group-a')
+
+    def test_non_json_upload_response_is_handled(self):
+        from services.hygraph import upload_asset
+        from werkzeug.datastructures import FileStorage
+        with patch('services.hygraph.requests.post') as request:
+            request.return_value.ok=True
+            request.return_value.json.side_effect=ValueError()
+            self.assertIsNone(upload_asset('test',FileStorage(io.BytesIO(b'abc'),filename='a.png')))
+
 if __name__ == '__main__':
     unittest.main()

@@ -14,6 +14,11 @@ def create_app():
         raise RuntimeError("Missing SESSION_SECRET_KEY environment variable.")
 
     app = Flask(__name__)
+    app.config['MAX_CONTENT_LENGTH'] = 4 * 1024 * 1024 + 64 * 1024
+
+    @app.errorhandler(413)
+    def too_large(error):
+        return {'error': 'invalid_image'}, 413
     CORS(app, supports_credentials=True, origins=CORS_ORIGINS)
     app.config["CORS_HEADERS"] = "Content-Type"
 
