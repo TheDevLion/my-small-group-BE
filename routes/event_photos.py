@@ -71,20 +71,26 @@ def get_event_photos():
     cursor = None
     while True:
         data = graphcms_request(session['bearer_token'], '''
-            query Photos($eventId: String!, $groupId: String!, $after: ID) {
-                eventPhotos(where: {eventId: $eventId, groupId: $groupId}, stage: PUBLISHED,
+            query Photos($eventId: String!, $groupId: String!, $after: String) {
+                eventPhotosConnection(where: {eventId: $eventId, groupId: $groupId}, stage: PUBLISHED,
                     first: 100, after: $after, orderBy: id_ASC) {
-                    id img { url }
+                    edges { node { id img { url } } }
+                    pageInfo { hasNextPage endCursor }
                 }
             }
         ''', {'eventId': event_id, 'groupId': session['group_id'], 'after': cursor})
-        if not data or 'eventPhotos' not in data:
+        if not data or not data.get('eventPhotosConnection'):
             return {'error': 'api_unavailable'}, 502
-        batch = data['eventPhotos']
-        photos.extend({'id': p['id'], 'url': (p.get('img') or {}).get('url')} for p in batch)
-        if len(batch) < 100:
+        connection = data['eventPhotosConnection']
+        photos.extend({'id': edge['node']['id'], 'url': (edge['node'].get('img') or {}).get('url')}
+            for edge in connection['edges'])
+        page_info = connection['pageInfo']
+        if not page_info['hasNextPage']:
             return photos
-        cursor = batch[-1]['id']
+        next_cursor = page_info['endCursor']
+        if not next_cursor or next_cursor == cursor:
+            return {'error': 'api_unavailable'}, 502
+        cursor = next_cursor
 
 
 @event_photos_bp.route('/event-photos', methods=['POST'])
