@@ -72,17 +72,16 @@ def get_event_photos():
     while True:
         data = graphcms_request(session['bearer_token'], '''
             query Photos($eventId: String!, $groupId: String!, $after: ID) {
-                eventPhotos(where: {eventId: $eventId, groupId: $groupId}, stage: DRAFT,
+                eventPhotos(where: {eventId: $eventId, groupId: $groupId}, stage: PUBLISHED,
                     first: 100, after: $after, orderBy: id_ASC) {
-                    id img { url } documentInStages(stages: [PUBLISHED]) { id }
+                    id img { url }
                 }
             }
         ''', {'eventId': event_id, 'groupId': session['group_id'], 'after': cursor})
         if not data or 'eventPhotos' not in data:
             return {'error': 'api_unavailable'}, 502
         batch = data['eventPhotos']
-        photos.extend({'id': p['id'], 'url': (p.get('img') or {}).get('url'),
-                       'pending': not bool(p.get('documentInStages'))} for p in batch)
+        photos.extend({'id': p['id'], 'url': (p.get('img') or {}).get('url')} for p in batch)
         if len(batch) < 100:
             return photos
         cursor = batch[-1]['id']
@@ -141,12 +140,12 @@ def delete_event_photo(photo_id):
     photo, err = _photo(session, photo_id)
     if err:
         return err
-    # Remove the draft too, so a deleted photo cannot be republished on reload.
+    # Keep the existing deletion semantics: only published photos are listed.
     data = graphcms_request(session['bearer_token'], '''
-        mutation DeletePhoto($id: ID!) {
-            deleteEventPhoto(where: {id: $id}) { id }
+        mutation UnpublishPhoto($id: ID!) {
+            unpublishEventPhoto(where: {id: $id}) { id }
         }
     ''', {'id': photo_id})
-    if not data or not data.get('deleteEventPhoto'):
+    if not data or not data.get('unpublishEventPhoto'):
         return {'error': 'api_unavailable'}, 502
-    return data['deleteEventPhoto']
+    return data['unpublishEventPhoto']

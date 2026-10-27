@@ -235,7 +235,7 @@ def openapi_spec():
             },
             "/event-photos/{eventPhotoId}": {
                 "delete": {
-                    "summary": "Delete event photo",
+                    "summary": "Unpublish event photo",
                     "security": [{"cookieAuth": []}],
                     "parameters": [
                         {
@@ -246,7 +246,7 @@ def openapi_spec():
                         }
                     ],
                     "responses": {
-                        "200": {"description": "Photo deleted"},
+                        "200": {"description": "Photo unpublished"},
                         "401": {"description": "Unauthorized"},
                     },
                 }
@@ -284,7 +284,7 @@ def openapi_spec():
         'responses': {'200': {'description': 'Photo published'}, '404': {'description': 'Photo not owned by this group'},
                       '502': {'description': 'Publication failed; response includes photo id for retry'}}}}
     spec['paths']['/event-photos']['post']['description'] = 'JPEG, PNG, GIF or WebP, up to 4 MiB. Event must belong to the authenticated group.'
-    spec['paths']['/event-photos']['get']['description'] = 'Includes drafts. A photo with pending=true can be recovered through its publish endpoint.'
+    spec['paths']['/event-photos']['get']['description'] = 'Lists published photos only. Opening a gallery does not republish drafts.'
     for path, operations in spec['paths'].items():
         for operation in operations.values():
             if operation.get('security'):
