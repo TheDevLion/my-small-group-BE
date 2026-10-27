@@ -9,7 +9,7 @@ from config import (
     SESSION_SECRET_KEY,
     SESSION_TTL_SECONDS,
 )
-from services.hygraph import get_bearer_token_by_group
+from services.hygraph import get_bearer_token_by_group, HygraphUnavailable
 
 
 def _serializer():
@@ -30,7 +30,10 @@ def require_session():
     if not group_id:
         return None, ({"error": "unauthorized"}, 401)
 
-    bearer_token = get_bearer_token_by_group(group_id)
+    try:
+        bearer_token = get_bearer_token_by_group(group_id)
+    except HygraphUnavailable:
+        return None, ({"error": "api_unavailable"}, 503)
     if not bearer_token:
         return None, ({"error": "unauthorized"}, 401)
 

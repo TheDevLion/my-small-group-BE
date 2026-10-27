@@ -1,7 +1,6 @@
 from flask import Blueprint, request, make_response
-from flask_cors import cross_origin
 
-from services.hygraph import get_bearer_token
+from services.hygraph import get_bearer_token, HygraphUnavailable
 from services.session_auth import (
     clear_session_cookie,
     set_session_cookie,
@@ -13,14 +12,16 @@ auth_bp = Blueprint("auth", __name__)
 
 
 @auth_bp.route("/login", methods=["POST"])
-@cross_origin(supports_credentials=True)
 def login():
     data = request.get_json(silent=True) or {}
-    password = data.get("payload")
-    if not password:
+    password = data.get("payload") if isinstance(data, dict) else None
+    if not isinstance(password, str) or not password:
         return {"error": "missing_password"}, 400
 
-    auth_token = get_bearer_token(password)
+    try:
+        auth_token = get_bearer_token(password)
+    except HygraphUnavailable:
+        return {"error": "api_unavailable"}, 503
     if not auth_token:
         return {"error": "wrong_password"}, 401
 
@@ -32,7 +33,6 @@ def login():
 
 
 @auth_bp.route("/logout", methods=["POST"])
-@cross_origin(supports_credentials=True)
 def logout():
     response = make_response({"ok": True})
     clear_session_cookie(response)
@@ -40,6 +40,5 @@ def logout():
 
 
 @auth_bp.route("/info", methods=["POST"])
-@cross_origin(supports_credentials=True)
 def info_deprecated():
     return {"error": "deprecated", "message": "Use /login instead."}, 410

@@ -3,6 +3,10 @@ import requests
 from config import HYGRAPH_ADMIN_TOKEN, HYGRAPH_API_URL
 
 
+class HygraphUnavailable(Exception):
+    pass
+
+
 def graphcms_request(bearer_token, query, variables=None):
     payload = {"query": query}
     if variables is not None:
@@ -30,24 +34,12 @@ def graphcms_request(bearer_token, query, variables=None):
 
 def _fetch_tokens():
     if not HYGRAPH_ADMIN_TOKEN:
-        return None
-
-    payload = {"query": "query MyQuery { tokens(){ password tokenDescription bearerToken } }"}
-    try:
-        r = requests.post(
-            HYGRAPH_API_URL,
-            json=payload,
-            headers={
-                "Content-Type": "application/json",
-                "authorization": f"Bearer {HYGRAPH_ADMIN_TOKEN}",
-            },
-            timeout=15,
-        )
-        if not r.ok:
-            return None
-        return r.json().get("data", {}).get("tokens", [])
-    except Exception:
-        return None
+        raise HygraphUnavailable()
+    data = graphcms_request(HYGRAPH_ADMIN_TOKEN,
+        "query { tokens(first: 1000) { password tokenDescription bearerToken } }")
+    if not data or not isinstance(data.get("tokens"), list):
+        raise HygraphUnavailable()
+    return data["tokens"]
 
 
 def get_bearer_token(user_password):

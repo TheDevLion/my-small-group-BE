@@ -1,5 +1,4 @@
 from flask import Blueprint, request
-from flask_cors import cross_origin
 
 from services.hygraph import graphcms_request, publish_group
 from services.session_auth import require_session
@@ -9,7 +8,6 @@ group_bp = Blueprint("group", __name__)
 
 
 @group_bp.route("/group", methods=["GET"])
-@cross_origin(supports_credentials=True)
 def get_group():
     session, err = require_session()
     if err:
@@ -39,7 +37,6 @@ def get_group():
 
 
 @group_bp.route("/group/name", methods=["PUT"])
-@cross_origin(supports_credentials=True)
 def update_group_name():
     session, err = require_session()
     if err:
@@ -70,7 +67,6 @@ def update_group_name():
 
 
 @group_bp.route("/group/participants", methods=["PUT"])
-@cross_origin(supports_credentials=True)
 def update_group_participants():
     session, err = require_session()
     if err:
@@ -101,7 +97,6 @@ def update_group_participants():
 
 
 @group_bp.route("/group/events", methods=["PUT"])
-@cross_origin(supports_credentials=True)
 def update_group_events():
     session, err = require_session()
     if err:
@@ -132,7 +127,6 @@ def update_group_events():
 
 
 @group_bp.route("/group/template", methods=["PUT"])
-@cross_origin(supports_credentials=True)
 def update_group_template():
     session, err = require_session()
     if err:

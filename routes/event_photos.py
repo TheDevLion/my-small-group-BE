@@ -1,5 +1,4 @@
 from flask import Blueprint, request
-from flask_cors import cross_origin
 
 from services.hygraph import (
     graphcms_request,
@@ -14,7 +13,6 @@ event_photos_bp = Blueprint("event_photos", __name__)
 
 
 @event_photos_bp.route("/event-photos", methods=["GET"])
-@cross_origin(supports_credentials=True)
 def get_event_photos():
     session, err = require_session()
     if err:
@@ -50,7 +48,6 @@ def get_event_photos():
 
 
 @event_photos_bp.route("/event-photos", methods=["POST"])
-@cross_origin(supports_credentials=True)
 def upload_event_photo():
     session, err = require_session()
     if err:
@@ -105,7 +102,6 @@ def upload_event_photo():
 
 
 @event_photos_bp.route("/event-photos/<event_photo_id>", methods=["DELETE"])
-@cross_origin(supports_credentials=True)
 def delete_event_photo(event_photo_id):
     session, err = require_session()
     if err:

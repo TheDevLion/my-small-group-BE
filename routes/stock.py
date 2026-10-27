@@ -1,5 +1,4 @@
 from flask import Blueprint, request
-from flask_cors import cross_origin
 import requests
 
 
@@ -7,7 +6,6 @@ stock_bp = Blueprint("stock", __name__)
 
 
 @stock_bp.route("/stock_price", methods=["GET"])
-@cross_origin(supports_credentials=True)
 def get_stock_price():
     ticker = request.args.get("stock", "").lower()
 
