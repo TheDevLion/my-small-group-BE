@@ -72,11 +72,24 @@ def get_group_data(session):
             group[field] = default
     if not isinstance(group['events'], list) or not isinstance(group['participants'], list):
         return None
-    if any(not isinstance(e, dict) or not valid_id(e.get('id')) or
-           not isinstance(e.get('presence'), list) or not all(valid_id(p) for p in e['presence'])
-           for e in group['events']):
-        return None
-    if any(not isinstance(p, dict) or not valid_id(p.get('id')) for p in group['participants']):
+    for event in group['events']:
+        if not isinstance(event, dict) or not valid_id(event.get('id')):
+            return None
+        for field, default in [('title', ''), ('dateStr', ''), ('description', ''), ('presence', []), ('frequencyFlag', False)]:
+            if event.get(field) is None:
+                event[field] = default
+        if (not all(isinstance(event[field], str) for field in ('title', 'dateStr', 'description'))
+                or not isinstance(event['presence'], list) or not all(valid_id(p) for p in event['presence'])):
+            return None
+    for participant in group['participants']:
+        if not isinstance(participant, dict) or not valid_id(participant.get('id')):
+            return None
+        for field in ('name', 'alias', 'role'):
+            if participant.get(field) is None:
+                participant[field] = ''
+            if not isinstance(participant[field], str):
+                return None
+    if not isinstance(group['template'], dict):
         return None
     return group
 
@@ -87,6 +100,19 @@ def update_group_field(session, field, value, revision):
         return {'error': 'api_unavailable'}, 502
     if current.get('updatedAt') != revision:
         return {'error': 'conflict'}, 409
+    if field in ('events', 'participants'):
+        previous = {item['id']: item for item in current[field]}
+        validator = valid_events if field == 'events' else valid_participants
+        ids = set()
+        for item in value:
+            if not isinstance(item, dict) or not valid_id(item.get('id')) or item['id'] in ids:
+                return {'error': 'invalid_payload'}, 400
+            ids.add(item['id'])
+            # Preserve untouched legacy records; enforce the current contract on edits.
+            if item != previous.get(item['id']) and not validator([item]):
+                return {'error': 'invalid_payload'}, 400
+        if field == 'participants' and len(value) > max(30, len(current[field])):
+            return {'error': 'invalid_payload'}, 400
     if field == 'participants':
         removed = {p['id'] for p in current.get('participants', [])} - {p['id'] for p in value}
         if any(removed.intersection(e.get('presence', [])) for e in current.get('events', [])):

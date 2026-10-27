@@ -1,5 +1,5 @@
 from flask import Blueprint, request
-from services.group_data import get_group_data, update_group_field, valid_events, valid_participants, valid_template
+from services.group_data import get_group_data, update_group_field, valid_template
 from services.session_auth import require_session
 
 
@@ -38,12 +38,12 @@ def update_group_name():
 
 @group_bp.route('/group/participants', methods=['PUT'])
 def update_group_participants():
-    return _update('participants', valid_participants)
+    return _update('participants', lambda value: isinstance(value, list))
 
 
 @group_bp.route('/group/events', methods=['PUT'])
 def update_group_events():
-    return _update('events', valid_events)
+    return _update('events', lambda value: isinstance(value, list))
 
 
 @group_bp.route('/group/template', methods=['PUT'])
