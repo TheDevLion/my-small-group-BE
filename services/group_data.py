@@ -1,4 +1,5 @@
 from datetime import date
+from math import isfinite
 from services.hygraph import graphcms_request, publish_group
 
 
@@ -44,12 +45,12 @@ def valid_template(value):
         return False
     if 'shuffle_connector_word' in value:
         connector = value['shuffle_connector_word']
-        if not isinstance(connector, str) or not connector.strip():
+        if not isinstance(connector, str):
             return False
     if 'shuffle_dialog_font_size' in value:
         try:
             size = float(value['shuffle_dialog_font_size'])
-            if isinstance(value['shuffle_dialog_font_size'], bool) or not 8 <= size <= 96:
+            if isinstance(value['shuffle_dialog_font_size'], bool) or not isfinite(size) or size <= 0:
                 return False
         except (ValueError, TypeError):
             return False
@@ -66,6 +67,10 @@ def get_group_data(session):
     ''', {'id': session['group_id']})
     group = data.get('group') if isinstance(data, dict) else None
     if not isinstance(group, dict):
+        return None
+    if group.get('name') is None:
+        group['name'] = ''
+    if not isinstance(group['name'], str):
         return None
     for field, default in [('events', []), ('participants', []), ('template', {})]:
         if group.get(field) is None:

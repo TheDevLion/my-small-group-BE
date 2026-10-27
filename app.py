@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, request
 from flask_cors import CORS
 
 from config import CORS_ORIGINS, HYGRAPH_ADMIN_TOKEN, SESSION_SECRET_KEY
@@ -18,7 +18,8 @@ def create_app():
 
     @app.errorhandler(413)
     def too_large(error):
-        return {'error': 'invalid_image'}, 413
+        error_code = 'invalid_image' if request.endpoint == 'event_photos.upload_event_photo' else 'invalid_payload'
+        return {'error': error_code}, 413
     CORS(app, supports_credentials=True, origins=CORS_ORIGINS)
     app.config["CORS_HEADERS"] = "Content-Type"
 
