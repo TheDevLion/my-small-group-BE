@@ -97,7 +97,7 @@ Updates the group name.
 ```bash
 curl -X PUT http://127.0.0.1:5000/group/name \
   -H 'Content-Type: application/json' \
-  -d '{"name":"New Name"}' \
+  -d '{"name":"New Name", "updatedAt":"REVISION_FROM_GET_GROUP"}' \
   -b cookies.txt
 ```
 
@@ -107,7 +107,7 @@ Updates the participants list.
 ```bash
 curl -X PUT http://127.0.0.1:5000/group/participants \
   -H 'Content-Type: application/json' \
-  -d '{"participants":[]}' \
+  -d '{"participants":[], "updatedAt":"REVISION_FROM_GET_GROUP"}' \
   -b cookies.txt
 ```
 
@@ -117,7 +117,7 @@ Updates the events list.
 ```bash
 curl -X PUT http://127.0.0.1:5000/group/events \
   -H 'Content-Type: application/json' \
-  -d '{"events":[]}' \
+  -d '{"events":[], "updatedAt":"REVISION_FROM_GET_GROUP"}' \
   -b cookies.txt
 ```
 
@@ -127,7 +127,7 @@ Updates the group template.
 ```bash
 curl -X PUT http://127.0.0.1:5000/group/template \
   -H 'Content-Type: application/json' \
-  -d '{"template":{}}' \
+  -d '{"template":{}, "updatedAt":"REVISION_FROM_GET_GROUP"}' \
   -b cookies.txt
 ```
 
@@ -149,7 +149,7 @@ curl -X POST http://127.0.0.1:5000/event-photos \
 ```
 
 ### DELETE /event-photos/:id
-Unpublishes an event photo.
+Deletes the event photo after checking its group.
 
 ```bash
 curl -X DELETE http://127.0.0.1:5000/event-photos/EVENT_PHOTO_ID -b cookies.txt
@@ -170,3 +170,16 @@ Example (local + GitHub Pages):
 ```
 CORS_ORIGINS=http://localhost:4200,https://thedevlion.github.io
 ```
+
+
+## Regression checks and updated write contract
+
+Run `.venv/bin/python -B -m unittest discover -s tests -v`. Tests mock Hygraph and block network writes.
+
+All four `/group/*` PUTs require `updatedAt` from `GET /group` and return the new revision on success. Missing/stale revisions return 409, without overwriting newer edits. Validation returns 400. A participant referenced by attendance cannot be deleted (409). Group reads use DRAFT so a saved but unpublished change can be inspected and retried after publication failure.
+
+Deploy the frontend and backend changes together: older frontends do not send revisions and their writes will be rejected. The group token needs DRAFT reads, conditional `updateManyGroupsConnection`, and the existing update/publish permissions. Photo deletion requires `deleteEventPhoto`. Schema support was verified by read-only introspection; group-specific token permissions and production writes still require staging verification.
+
+Photo uploads accept JPEG/PNG/GIF/WebP signatures, with a 4 MiB file limit. The API scopes photo operations to the authenticated group. GET includes `pending` for unpublished photos; POST `/event-photos/{id}/publish` retries publication without reuploading. A publication error includes the existing photo ID. Deleting a photo removes its record, including the draft, to prevent it reappearing. Uploaded assets are retained: if the upstream response is lost after a write, the API cannot safely infer that the asset is unused. Storage cleanup after an ambiguous upstream failure remains an operational limitation; no automatic destructive cleanup was added.
+
+`X-Group-ID` lets the frontend reject use of a cookie belonging to a different group in another tab. Token-service outages return 503, not 401. Keep `CORS_ORIGINS` restricted to frontend origins and verify cookie settings in the deployment environment.

@@ -235,7 +235,7 @@ def openapi_spec():
             },
             "/event-photos/{eventPhotoId}": {
                 "delete": {
-                    "summary": "Unpublish event photo",
+                    "summary": "Delete event photo",
                     "security": [{"cookieAuth": []}],
                     "parameters": [
                         {
@@ -246,7 +246,7 @@ def openapi_spec():
                         }
                     ],
                     "responses": {
-                        "200": {"description": "Photo unpublished"},
+                        "200": {"description": "Photo deleted"},
                         "401": {"description": "Unauthorized"},
                     },
                 }
@@ -269,6 +269,28 @@ def openapi_spec():
             },
         },
     }
+    for field in ('name', 'participants', 'events', 'template'):
+        operation = spec['paths']['/group/' + field]['put']
+        schema = operation['requestBody']['content']['application/json']['schema']
+        schema['properties']['updatedAt'] = {'type': 'string', 'format': 'date-time',
+            'description': 'Revision returned by GET /group or the previous successful write.'}
+        schema['required'].append('updatedAt')
+        operation['responses']['409'] = {'description': 'Stale/missing revision or participant still referenced by attendance'}
+        operation['responses']['502'] = {'description': 'Storage or publication failed; reload before retrying'}
+    photo_parameter = {'name': 'eventPhotoId', 'in': 'path', 'required': True, 'schema': {'type': 'string'}}
+    spec['paths']['/event-photos/{eventPhotoId}/publish'] = {'post': {
+        'summary': 'Retry publication without uploading another asset',
+        'security': [{'cookieAuth': []}], 'parameters': [photo_parameter],
+        'responses': {'200': {'description': 'Photo published'}, '404': {'description': 'Photo not owned by this group'},
+                      '502': {'description': 'Publication failed; response includes photo id for retry'}}}}
+    spec['paths']['/event-photos']['post']['description'] = 'JPEG, PNG, GIF or WebP, up to 4 MiB. Event must belong to the authenticated group.'
+    spec['paths']['/event-photos']['get']['description'] = 'Includes drafts. A photo with pending=true can be recovered through its publish endpoint.'
+    for path, operations in spec['paths'].items():
+        for operation in operations.values():
+            if operation.get('security'):
+                operation.setdefault('parameters', []).append({'name': 'X-Group-ID', 'in': 'header',
+                    'schema': {'type': 'string'}, 'description': 'Expected group; a cookie for another group returns 401.'})
+                operation['responses']['503'] = {'description': 'Authentication provider unavailable; session is preserved'}
     return jsonify(spec)
 
 
