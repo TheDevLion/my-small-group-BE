@@ -70,7 +70,8 @@ def publish_group(bearer_token, group_id):
             publishGroup(to: PUBLISHED, where: {id: $id}) { id }
         }
     """
-    graphcms_request(bearer_token, mutation, {"id": group_id})
+    data = graphcms_request(bearer_token, mutation, {"id": group_id})
+    return data.get("publishGroup") if data else None
 
 
 def publish_asset(bearer_token, asset_id):
@@ -79,7 +80,8 @@ def publish_asset(bearer_token, asset_id):
             publishAsset(to: PUBLISHED, where: {id: $id}) { id }
         }
     """
-    graphcms_request(bearer_token, mutation, {"id": asset_id})
+    data = graphcms_request(bearer_token, mutation, {"id": asset_id})
+    return data.get("publishAsset") if data else None
 
 
 def publish_event_photo(bearer_token, event_photo_id):
@@ -88,7 +90,8 @@ def publish_event_photo(bearer_token, event_photo_id):
             publishEventPhoto(to: PUBLISHED, where: {id: $id}) { id }
         }
     """
-    graphcms_request(bearer_token, mutation, {"id": event_photo_id})
+    data = graphcms_request(bearer_token, mutation, {"id": event_photo_id})
+    return data.get("publishEventPhoto") if data else None
 
 
 def upload_asset(bearer_token, file_storage):

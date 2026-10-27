@@ -30,6 +30,10 @@ def require_session():
     if not group_id:
         return None, ({"error": "unauthorized"}, 401)
 
+    expected_group = request.headers.get('X-Group-ID')
+    if expected_group and expected_group != group_id:
+        return None, ({"error": "unauthorized"}, 401)
+
     try:
         bearer_token = get_bearer_token_by_group(group_id)
     except HygraphUnavailable:

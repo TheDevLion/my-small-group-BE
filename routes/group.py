@@ -1,156 +1,51 @@
 from flask import Blueprint, request
-
-from services.hygraph import graphcms_request, publish_group
+from services.group_data import get_group_data, update_group_field, valid_events, valid_participants, valid_template
 from services.session_auth import require_session
 
 
-group_bp = Blueprint("group", __name__)
+group_bp = Blueprint('group', __name__)
 
 
-@group_bp.route("/group", methods=["GET"])
+@group_bp.route('/group', methods=['GET'])
 def get_group():
     session, err = require_session()
     if err:
         return err
-    _, session_data = session
-
-    query = """
-        query GetGroup($id: ID!) {
-            group(where: {id: $id}) {
-                id
-                name
-                participants
-                events
-                template
-            }
-        }
-    """
-
-    data = graphcms_request(
-        session_data["bearer_token"],
-        query,
-        {"id": session_data["group_id"]},
-    )
-    if not data or not data.get("group"):
-        return {"error": "api_unavailable"}, 502
-    return data["group"]
+    data = get_group_data(session[1])
+    if not data:
+        return {'error': 'api_unavailable'}, 502
+    return data
 
 
-@group_bp.route("/group/name", methods=["PUT"])
+def _update(field, validate):
+    session, err = require_session()
+    if err:
+        return err
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict) or not validate(payload.get(field)):
+        return {'error': 'invalid_payload'}, 400
+    revision = payload.get('updatedAt')
+    if not isinstance(revision, str) or not revision:
+        return {'error': 'conflict'}, 409
+    value = payload[field].strip() if field == 'name' else payload[field]
+    return update_group_field(session[1], field, value, revision)
+
+
+@group_bp.route('/group/name', methods=['PUT'])
 def update_group_name():
-    session, err = require_session()
-    if err:
-        return err
-    _, session_data = session
-
-    payload = request.get_json(silent=True) or {}
-    name = (payload.get("name") or "").strip()
-    if not name:
-        return {"error": "invalid_name"}, 400
-
-    mutation = """
-        mutation UpdateGroupName($id: ID!, $name: String!) {
-            updateGroup(where: {id: $id}, data: { name: $name }) { id }
-        }
-    """
-
-    data = graphcms_request(
-        session_data["bearer_token"],
-        mutation,
-        {"id": session_data["group_id"], "name": name},
-    )
-    if not data or not data.get("updateGroup"):
-        return {"error": "api_unavailable"}, 502
-
-    publish_group(session_data["bearer_token"], session_data["group_id"])
-    return data["updateGroup"]
+    return _update('name', lambda value: isinstance(value, str) and bool(value.strip()))
 
 
-@group_bp.route("/group/participants", methods=["PUT"])
+@group_bp.route('/group/participants', methods=['PUT'])
 def update_group_participants():
-    session, err = require_session()
-    if err:
-        return err
-    _, session_data = session
-
-    payload = request.get_json(silent=True) or {}
-    participants = payload.get("participants")
-    if not isinstance(participants, list):
-        return {"error": "invalid_payload"}, 400
-
-    mutation = """
-        mutation UpdateGroupParticipants($id: ID!, $participants: Json!) {
-            updateGroup(where: {id: $id}, data: { participants: $participants }) { id }
-        }
-    """
-
-    data = graphcms_request(
-        session_data["bearer_token"],
-        mutation,
-        {"id": session_data["group_id"], "participants": participants},
-    )
-    if not data or not data.get("updateGroup"):
-        return {"error": "api_unavailable"}, 502
-
-    publish_group(session_data["bearer_token"], session_data["group_id"])
-    return data["updateGroup"]
+    return _update('participants', valid_participants)
 
 
-@group_bp.route("/group/events", methods=["PUT"])
+@group_bp.route('/group/events', methods=['PUT'])
 def update_group_events():
-    session, err = require_session()
-    if err:
-        return err
-    _, session_data = session
-
-    payload = request.get_json(silent=True) or {}
-    events = payload.get("events")
-    if not isinstance(events, list):
-        return {"error": "invalid_payload"}, 400
-
-    mutation = """
-        mutation UpdateGroupEvents($id: ID!, $events: Json!) {
-            updateGroup(where: {id: $id}, data: { events: $events }) { id }
-        }
-    """
-
-    data = graphcms_request(
-        session_data["bearer_token"],
-        mutation,
-        {"id": session_data["group_id"], "events": events},
-    )
-    if not data or not data.get("updateGroup"):
-        return {"error": "api_unavailable"}, 502
-
-    publish_group(session_data["bearer_token"], session_data["group_id"])
-    return data["updateGroup"]
+    return _update('events', valid_events)
 
 
-@group_bp.route("/group/template", methods=["PUT"])
+@group_bp.route('/group/template', methods=['PUT'])
 def update_group_template():
-    session, err = require_session()
-    if err:
-        return err
-    _, session_data = session
-
-    payload = request.get_json(silent=True) or {}
-    template = payload.get("template")
-    if not isinstance(template, dict):
-        return {"error": "invalid_payload"}, 400
-
-    mutation = """
-        mutation UpdateGroupTemplate($id: ID!, $template: Json!) {
-            updateGroup(where: {id: $id}, data: { template: $template }) { id }
-        }
-    """
-
-    data = graphcms_request(
-        session_data["bearer_token"],
-        mutation,
-        {"id": session_data["group_id"], "template": template},
-    )
-    if not data or not data.get("updateGroup"):
-        return {"error": "api_unavailable"}, 502
-
-    publish_group(session_data["bearer_token"], session_data["group_id"])
-    return data["updateGroup"]
+    return _update('template', valid_template)
