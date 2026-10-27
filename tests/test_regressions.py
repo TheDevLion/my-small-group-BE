@@ -34,6 +34,12 @@ class ApiTests(BaseTests):
         with patch('routes.auth.get_bearer_token',return_value=None):
             self.assertEqual(self.client.post('/login',json={'payload':'pw'}).status_code,401)
 
+    def test_cookie_from_another_group_cannot_write(self):
+        self.client.set_cookie('msg_session',start_session('group-b'))
+        with patch('services.session_auth.get_bearer_token_by_group') as token:
+            self.assertEqual(self.client.put('/group/events',json={'events':[]},headers={'X-Group-ID':'group-a'}).status_code,401)
+            token.assert_not_called()
+
     def test_login_rejects_non_object_body(self):
         self.assertEqual(self.client.post('/login',json=['bad']).status_code,400)
 
@@ -43,6 +49,21 @@ class GroupTests(BaseTests):
         self.auth=patch('routes.group.require_session',return_value=SESSION)
         self.auth.start(); self.addCleanup(self.auth.stop)
         self.current={'id':'group-a','updatedAt':'2026-10-27T10:00:00Z','events':[], 'participants':[]}
+
+    def test_nullable_empty_group_loads_without_breaking_writes(self):
+        from services.group_data import get_group_data
+        with patch('services.group_data.graphcms_request', return_value={'group': {'id':'group-a','events':None,'participants':None,'template':None}}):
+            group=get_group_data(SESSION[0][1])
+            self.assertEqual(group['events'],[])
+            self.assertEqual(group['participants'],[])
+            self.assertEqual(group['template'],{})
+
+    def test_success_returns_the_written_revision(self):
+        result={'id':'group-a','updatedAt':'2026-10-27T10:00:01Z'}
+        with patch('services.group_data.get_group_data',return_value=self.current), patch('services.group_data.graphcms_request',return_value={'updateManyGroupsConnection':{'edges':[{'node':result}]}}), patch('services.group_data.publish_group',return_value={'id':'group-a'}):
+            r=self.client.put('/group/events',json={'events':[],'updatedAt':self.current['updatedAt']})
+            self.assertEqual(r.status_code,200)
+            self.assertEqual(r.json,result)
 
     def test_invalid_records_never_reach_storage(self):
         for field,value in [('events',[None]),('events',[{'id':'e'}]),('participants',[{'id':'p','role':''}]),('template',{'shuffle_dialog_font_size':'huge'}),('name',123)]:

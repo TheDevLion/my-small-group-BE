@@ -64,7 +64,21 @@ def get_group_data(session):
             }
         }
     ''', {'id': session['group_id']})
-    return data.get('group') if data else None
+    group = data.get('group') if isinstance(data, dict) else None
+    if not isinstance(group, dict):
+        return None
+    for field, default in [('events', []), ('participants', []), ('template', {})]:
+        if group.get(field) is None:
+            group[field] = default
+    if not isinstance(group['events'], list) or not isinstance(group['participants'], list):
+        return None
+    if any(not isinstance(e, dict) or not valid_id(e.get('id')) or
+           not isinstance(e.get('presence'), list) or not all(valid_id(p) for p in e['presence'])
+           for e in group['events']):
+        return None
+    if any(not isinstance(p, dict) or not valid_id(p.get('id')) for p in group['participants']):
+        return None
+    return group
 
 
 def update_group_field(session, field, value, revision):
